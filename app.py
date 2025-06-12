@@ -13,17 +13,13 @@ if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
 
-        # Ensure essential columns exist
-        expected_cols = {"Item Name", "Quantity", "Value", "Date"}
-        if not expected_cols.issubset(df.columns):
-            st.error(f"❌ Missing required columns: {expected_cols - set(df.columns)}")
-            st.stop()
-
-        # Convert and extract dates
+        # ✅ Convert columns to correct types
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce")
+        df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
+        df["Price_per_Unit"] = df["Value"] / df["Quantity"]
         df["Month"] = df["Date"].dt.strftime('%B')
         df["Year"] = df["Date"].dt.year
-        df["Price_per_Unit"] = df["Value"] / df["Quantity"]
 
         # Sidebar filters
         with st.sidebar:
@@ -51,7 +47,7 @@ if uploaded_file:
             (filtered_df["Value"] >= value_range[0]) & (filtered_df["Value"] <= value_range[1])
         ]
 
-        # Total Sales
+        # Total Sales Summary
         total_quantity = filtered_df["Quantity"].sum()
         total_value = filtered_df["Value"].sum()
         st.markdown(f"### 📦 Total Quantity Sold: `{total_quantity}`")
