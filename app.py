@@ -13,7 +13,11 @@ if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
 
-        # Convert data types
+        # Preview and structure check
+        st.subheader("🔍 Preview of Uploaded Data")
+        st.dataframe(df.head())
+
+        # Type conversion
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
         df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce")
         df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
@@ -21,10 +25,8 @@ if uploaded_file:
         df["Month"] = df["Date"].dt.strftime('%B')
         df["Year"] = df["Date"].dt.year
 
-        # Drop rows with missing Quantity or Value for filters
         valid_data = df.dropna(subset=["Quantity", "Value"])
 
-        # ✅ Safe min/max range setup
         if not valid_data.empty:
             quantity_min, quantity_max = int(valid_data["Quantity"].min()), int(valid_data["Quantity"].max())
             value_min, value_max = int(valid_data["Value"].min()), int(valid_data["Value"].max())
@@ -32,29 +34,39 @@ if uploaded_file:
             quantity_min, quantity_max = 0, 100
             value_min, value_max = 0, 100000
 
-        # Sidebar filters
+        # Filters with safe defaults
         with st.sidebar:
             st.header("🔍 Filters")
-            product_filter = st.multiselect("Select Product(s)", options=sorted(df["Item Name"].dropna().unique()))
-            month_filter = st.multiselect("Select Month(s)", options=sorted(df["Month"].dropna().unique()))
-            year_filter = st.multiselect("Select Year(s)", options=sorted(df["Year"].dropna().unique()))
+            product_options = sorted(df["Item Name"].dropna().unique())
+            product_filter = st.multiselect("Select Product(s)", options=product_options, default=product_options)
 
-            quantity_range = st.slider("Quantity Range", min_value=quantity_min, max_value=quantity_max, value=(quantity_min, quantity_max))
-            value_range = st.slider("Value Range", min_value=value_min, max_value=value_max, value=(value_min, value_max))
+            month_options = sorted(df["Month"].dropna().unique())
+            month_filter = st.multiselect("Select Month(s)", options=month_options, default=month_options)
+
+            year_options = sorted(df["Year"].dropna().unique())
+            year_filter = st.multiselect("Select Year(s)", options=year_options, default=year_options)
+
+            quantity_range = st.slider("Quantity Range", min_value=quantity_min, max_value=quantity_max,
+                                       value=(quantity_min, quantity_max))
+
+            value_range = st.slider("Value Range", min_value=value_min, max_value=value_max,
+                                    value=(value_min, value_max))
 
         # Apply filters
         filtered_df = df.copy()
-        if product_filter:
-            filtered_df = filtered_df[filtered_df["Item Name"].isin(product_filter)]
-        if month_filter:
-            filtered_df = filtered_df[filtered_df["Month"].isin(month_filter)]
-        if year_filter:
-            filtered_df = filtered_df[filtered_df["Year"].isin(year_filter)]
-
         filtered_df = filtered_df[
+            (filtered_df["Item Name"].isin(product_filter)) &
+            (filtered_df["Month"].isin(month_filter)) &
+            (filtered_df["Year"].isin(year_filter)) &
             (filtered_df["Quantity"] >= quantity_range[0]) & (filtered_df["Quantity"] <= quantity_range[1]) &
             (filtered_df["Value"] >= value_range[0]) & (filtered_df["Value"] <= value_range[1])
         ]
+
+        # Show filter result
+        st.markdown(f"### 📌 Filtered Rows: `{filtered_df.shape[0]}`")
+        if filtered_df.empty:
+            st.warning("⚠️ No data matched your filters. Try resetting them from the sidebar.")
+            st.stop()
 
         # Total Sales Summary
         total_quantity = filtered_df["Quantity"].sum()
@@ -85,7 +97,7 @@ if uploaded_file:
         with tab2:
             st.subheader("🧠 Product Segmentation using K-Means")
             cluster_df = filtered_df.dropna(subset=["Quantity", "Value"])
-            if len(cluster_df) >= 3:
+            if cluster_df.shape[0] >= 3:
                 kmeans = KMeans(n_clusters=3, random_state=42)
                 cluster_df["Cluster"] = kmeans.fit_predict(cluster_df[["Quantity", "Value"]])
                 fig3, ax3 = plt.subplots()
@@ -95,7 +107,7 @@ if uploaded_file:
                 ax3.set_title("Clusters based on Quantity and Value")
                 st.pyplot(fig3)
             else:
-                st.warning("Not enough data for clustering (need at least 3 valid rows).")
+                st.warning("⚠️ Not enough valid rows for clustering (need at least 3).")
 
         with tab3:
             st.subheader("📋 Filtered Dataset")
