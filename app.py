@@ -13,13 +13,16 @@ if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
 
-        # ✅ Convert columns to correct types
+        # ✅ Convert data types safely
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
         df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce")
         df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
         df["Price_per_Unit"] = df["Value"] / df["Quantity"]
         df["Month"] = df["Date"].dt.strftime('%B')
         df["Year"] = df["Date"].dt.year
+
+        # ✅ Drop rows with missing Quantity or Value for filters
+        valid_data = df.dropna(subset=["Quantity", "Value"])
 
         # Sidebar filters
         with st.sidebar:
@@ -28,10 +31,10 @@ if uploaded_file:
             month_filter = st.multiselect("Select Month(s)", options=sorted(df["Month"].dropna().unique()))
             year_filter = st.multiselect("Select Year(s)", options=sorted(df["Year"].dropna().unique()))
 
-            quantity_min, quantity_max = int(df["Quantity"].min()), int(df["Quantity"].max())
+            quantity_min, quantity_max = int(valid_data["Quantity"].min()), int(valid_data["Quantity"].max())
             quantity_range = st.slider("Quantity Range", min_value=quantity_min, max_value=quantity_max, value=(quantity_min, quantity_max))
 
-            value_min, value_max = int(df["Value"].min()), int(df["Value"].max())
+            value_min, value_max = int(valid_data["Value"].min()), int(valid_data["Value"].max())
             value_range = st.slider("Value Range", min_value=value_min, max_value=value_max, value=(value_min, value_max))
 
         # Apply filters
