@@ -13,7 +13,7 @@ if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
 
-        # ✅ Convert data types safely
+        # Convert data types
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
         df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce")
         df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
@@ -21,8 +21,16 @@ if uploaded_file:
         df["Month"] = df["Date"].dt.strftime('%B')
         df["Year"] = df["Date"].dt.year
 
-        # ✅ Drop rows with missing Quantity or Value for filters
+        # Drop rows with missing Quantity or Value for filters
         valid_data = df.dropna(subset=["Quantity", "Value"])
+
+        # ✅ Safe min/max range setup
+        if not valid_data.empty:
+            quantity_min, quantity_max = int(valid_data["Quantity"].min()), int(valid_data["Quantity"].max())
+            value_min, value_max = int(valid_data["Value"].min()), int(valid_data["Value"].max())
+        else:
+            quantity_min, quantity_max = 0, 100
+            value_min, value_max = 0, 100000
 
         # Sidebar filters
         with st.sidebar:
@@ -31,10 +39,7 @@ if uploaded_file:
             month_filter = st.multiselect("Select Month(s)", options=sorted(df["Month"].dropna().unique()))
             year_filter = st.multiselect("Select Year(s)", options=sorted(df["Year"].dropna().unique()))
 
-            quantity_min, quantity_max = int(valid_data["Quantity"].min()), int(valid_data["Quantity"].max())
             quantity_range = st.slider("Quantity Range", min_value=quantity_min, max_value=quantity_max, value=(quantity_min, quantity_max))
-
-            value_min, value_max = int(valid_data["Value"].min()), int(valid_data["Value"].max())
             value_range = st.slider("Value Range", min_value=value_min, max_value=value_max, value=(value_min, value_max))
 
         # Apply filters
@@ -45,6 +50,7 @@ if uploaded_file:
             filtered_df = filtered_df[filtered_df["Month"].isin(month_filter)]
         if year_filter:
             filtered_df = filtered_df[filtered_df["Year"].isin(year_filter)]
+
         filtered_df = filtered_df[
             (filtered_df["Quantity"] >= quantity_range[0]) & (filtered_df["Quantity"] <= quantity_range[1]) &
             (filtered_df["Value"] >= value_range[0]) & (filtered_df["Value"] <= value_range[1])
